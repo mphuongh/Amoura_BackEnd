@@ -1,0 +1,61 @@
+# ----------------------------
+# FastAPI + uv project ignores
+# ----------------------------
+
+# Virtual environment (uv / venv)
+.venv/
+.uv/
+__pypackages__/
+
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Dependency lock files (optional if auto-generated)
+uv.lock
+poetry.lock
+Pipfile.lock
+
+# Logs and runtime files
+*.log
+*.pid
+*.seed
+*.out
+*.bak
+
+# PyInstaller / build outputs
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+.nox/
+pytest_cache/
+.cache/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local data & temporary storage
+data/
+tmp/
+uploads/
+media/
