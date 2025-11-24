@@ -47,8 +47,15 @@ pytest_cache/
 
 # IDE & Editor settings
 .vscode/
-.idea/
-*.iml
+.idea/**/workspace.xml
+.idea/**/usage.statistics.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries/
+.idea/**/shelf/
+.idea/**/httpRequests/
+.idea/**/dataSources/
+.idea/**/dataSources.local.xml
+
 
 # OS files
 .DS_Store
