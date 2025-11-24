@@ -8,10 +8,12 @@ from app.core.config import get_settings
 from app.database import create_db_and_tables
 
 # Import models so SQLModel metadata is populated before create_all()
-from app.models import user as _user_models  # noqa: F401
+from app.models import user as _user_models
+from app.models import product as _product_models
 
 # Routers
 from app.routers.users import router as users_router
+from app.routers.products import router as products_router
 
 settings = get_settings()
 
@@ -48,6 +50,7 @@ app = FastAPI(
 
 # Versioned API prefix, e.g. /api/v1
 app.include_router(users_router, prefix=settings.API_V1_STR)
+app.include_router(products_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")
