@@ -15,6 +15,9 @@ class OrderCreate(SQLModel):
     Payload for creating an order from the current cart.
 
     User provides:
+      - receiver_name (optional)
+      - note (optional)
+      - phone_number
       - shipping address
       - delivery date
       - delivery window
@@ -22,25 +25,44 @@ class OrderCreate(SQLModel):
     Backend derives:
       - user_id from token
       - status = 'pending'
-      - total_amount from cart
+      - total_amount from cart (with extra 8% tax)
       - items from cart
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    receiver_name: str | None = None
+    phone_number: str
     full_address: str
     province: str
     ward: str
     delivery_date: date
     delivery_window: DeliveryWindow
+    note: str | None = None
 
-    @field_validator("full_address", "province", "ward")
+    @field_validator("full_address", "province", "ward", "phone_number")
     @classmethod
     def not_empty(cls, v: str) -> str:
         v = v.strip()
         if not v:
             raise ValueError("field cannot be empty")
         return v
+
+    @field_validator("receiver_name")
+    @classmethod
+    def normalize_receiver(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        return v or None
+
+    @field_validator("note", mode="before", check_fields=False)
+    @classmethod
+    def normalize_note(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        return v or None
 
 
 class OrderRead(SQLModel):
@@ -50,6 +72,9 @@ class OrderRead(SQLModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    receiver_name: str | None
+    phone_number: str
+    note: str | None
     full_address: str
     province: str
     ward: str
@@ -79,6 +104,8 @@ class OrderWithItemsRead(OrderRead):
     """
 
     items: list[OrderItemRead]
+    subtotal: float
+    tax_amount: float
 
 
 class OrderStatusUpdate(SQLModel):

@@ -12,7 +12,8 @@ class Order(SQLModel, table=True):
     Matches ERD:
       - id, user_id, full_address, province, ward,
         delivery_date, delivery_window, status,
-        total_amount, created_at
+        total_amount, created_at, receiver_name,
+        phone_number, note
     """
 
     __tablename__ = "orders"
@@ -26,6 +27,19 @@ class Order(SQLModel, table=True):
     user_id: uuid.UUID = Field(
         foreign_key="users.id",
         index=True,
+    )
+
+    # New fields
+    receiver_name: str | None = Field(
+        default=None,
+        description="Name of the person receiving the order (optional)",
+    )
+    phone_number: str = Field(
+        description="Contact phone number for delivery",
+    )
+    note: str | None = Field(
+        default=None,
+        description="Optional note / special instructions",
     )
 
     full_address: str = Field(
@@ -54,8 +68,9 @@ class Order(SQLModel, table=True):
         description="Order status lifecycle",
     )
 
+    # Total including tax (8%)
     total_amount: float = Field(
-        description="Total amount for this order",
+        description="Final amount for this order (including tax)",
     )
 
     created_at: datetime = Field(
@@ -95,6 +110,7 @@ class OrderItem(SQLModel, table=True):
         description="Quantity ordered (>=1)",
     )
 
+    # Pre-tax price at time of order
     unit_price: float = Field(
-        description="Unit price at time of order",
+        description="Unit price at time of order (pre-tax)",
     )

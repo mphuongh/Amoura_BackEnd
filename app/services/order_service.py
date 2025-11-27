@@ -30,6 +30,9 @@ WINDOW_START_TIMES: dict[str, time] = {
     # "custom" handled specially
 }
 
+# Fixed tax rate (8%)
+TAX_RATE = 0.08
+
 
 class OrderService:
     """
@@ -79,7 +82,7 @@ class OrderService:
           8. Clear cart.
           9. Commit transaction and return full order.
         """
-        # 1) Delivery date sanity check
+        # 1) Delivery date/time sanity check
         self._validate_delivery_timing(payload)
 
         # 2) Load cart
@@ -134,29 +137,31 @@ class OrderService:
                 )
 
         if errors:
-            # Fail the whole order; user must fix cart.
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "message": "Cart validation failed",
-                    "items": errors,
-                },
+                detail={"message": "Cart validation failed", "items": errors},
             )
 
-        # 4) Compute total_amount
-        total_amount = 0.0
+        # 4) Compute subtotal and total with tax
+        subtotal = 0.0
         for ci in cart_items:
-            total_amount += ci.quantity * ci.snapshot_price
+            subtotal += ci.quantity * ci.snapshot_price
 
-        if total_amount <= 0:
+        if subtotal <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Total order amount must be positive",
             )
 
+        tax_amount = round(subtotal * TAX_RATE, 2)
+        total_amount = subtotal + tax_amount
+
         # 5) Create the Order
         order = Order(
             user_id=user_id,
+            receiver_name=payload.receiver_name,
+            phone_number=payload.phone_number,
+            note=payload.note,
             full_address=payload.full_address,
             province=payload.province,
             ward=payload.ward,
@@ -167,7 +172,7 @@ class OrderService:
         )
         order = self.order_repo.create_order(session, order)
 
-        # 6) Create OrderItem rows
+        # 6) Create OrderItem rows (pre-tax unit_price)
         order_items: list[OrderItem] = []
         for ci in cart_items:
             order_items.append(
@@ -186,22 +191,19 @@ class OrderService:
             product = product_map[ci.product_id]
             product.stock_on_hand -= ci.quantity
             if product.stock_on_hand < 0:
-                # Should not happen if validations above passed.
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Internal stock calculation error",
                 )
-            # No commit here; rely on final session.commit()
 
-        # 8) Clear cart (without commit yet)
+        # 8) Clear cart
         for ci in cart_items:
             session.delete(ci)
 
-        # 9) Commit everything as one transaction
+        # 9) Commit transaction
         session.commit()
         session.refresh(order)
 
-        # Build response DTO
         return self._build_order_with_items_dto(order, order_items)
 
     def list_user_orders(
@@ -297,7 +299,7 @@ class OrderService:
         new = payload.status
 
         if current == new:
-            return order  # idempotent
+            return order
 
         allowed = {
             "pending": {"confirmed", "canceled"},
@@ -326,11 +328,14 @@ class OrderService:
         items: list[OrderItem],
     ) -> OrderWithItemsRead:
         """
-        Compose OrderWithItemsRead from ORM models.
+        Compose OrderWithItemsRead from ORM models, including subtotal + tax.
         """
         item_dtos: list[OrderItemRead] = []
+        subtotal = 0.0
+
         for it in items:
             line_total = it.quantity * it.unit_price
+            subtotal += line_total
             item_dtos.append(
                 OrderItemRead(
                     id=it.id,
@@ -342,53 +347,47 @@ class OrderService:
                 )
             )
 
+        tax_amount = round(subtotal * TAX_RATE, 2)
+
         return OrderWithItemsRead(
             id=order.id,
             user_id=order.user_id,
+            receiver_name=order.receiver_name,
+            phone_number=order.phone_number,
+            note=order.note,
             full_address=order.full_address,
             province=order.province,
             ward=order.ward,
             delivery_date=order.delivery_date,
-            delivery_window=order.delivery_window,
-            status=order.status,
+            delivery_window=order.delivery_window,  # Literal
+            status=order.status,  # Literal
             total_amount=order.total_amount,
             created_at=order.created_at,
             items=item_dtos,
+            subtotal=subtotal,
+            tax_amount=tax_amount,
         )
 
     def _validate_delivery_timing(self, payload: OrderCreate) -> None:
         """
-        Ensure delivery slot is not in the past and respects minimum lead time.
-
-        Rules:
-          - delivery_date must be today or later.
-          - If delivery_date > today: always OK (lead time auto-satisfied).
-          - If same-day:
-              * use a canonical start time for the selected window
-              * require start_time >= now + MIN_LEAD_MINUTES
-              * "custom" same-day is rejected (we don't know the exact time).
+        Ensure delivery is not in the past and respects MIN_LEAD_MINUTES.
         """
         now = datetime.now()
         today = now.date()
 
-        # Past date -> always invalid
         if payload.delivery_date < today:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Delivery date cannot be in the past",
             )
 
-        # Future date -> lead time is automatically satisfied
         if payload.delivery_date > today:
             return
 
-        # Same-day delivery: enforce 30-minute lead time
         window = payload.delivery_window
         start_time = WINDOW_START_TIMES.get(window)
 
         if start_time is None:
-            # This covers "custom" for same-day.
-            # Safer to force users to choose a later date or a predefined window.
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Custom same-day delivery is not allowed. "
