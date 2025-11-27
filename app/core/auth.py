@@ -161,3 +161,20 @@ def require_admin(user: User = Depends(require_auth)) -> User:
             detail="Admin access required",
         )
     return user
+
+
+def require_user(user: User = Depends(require_auth)) -> User:
+    """
+    Enforce that only normal customers (role='user') can access a route.
+
+    Use this for:
+      - cart endpoints
+      - checkout endpoints
+    Admins will be rejected with 403.
+    """
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Customer access required",
+        )
+    return user
