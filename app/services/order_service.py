@@ -3,8 +3,10 @@ import uuid
 from datetime import datetime, time, timedelta
 
 from fastapi import HTTPException, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from app.core.email_client import send_email
+from app.models.user import User
 from app.models.order import Order, OrderItem
 from app.models.cart import CartItem
 from app.models.product import Product
@@ -318,6 +320,15 @@ class OrderService:
         self.order_repo.update_order(session, order)
         session.commit()
         session.refresh(order)
+
+        # 🔔 Send confirmation email only when transitioning into "confirmed"
+        if current != "confirmed" and new == "confirmed":
+            try:
+                self._send_order_confirmation_email(session, order)
+            except Exception as exc:
+                # In production, log this instead of crashing the request
+                print(f"[WARN] Failed to send confirmation email: {exc}")
+
         return order  # type: ignore[return-value]
 
     # -------- Helper DTO builder --------
@@ -405,3 +416,119 @@ class OrderService:
                     "from now for the selected time window."
                 ),
             )
+    # ------------------------------------------------------------------
+    # INTERNAL: Send confirmation email
+    # ------------------------------------------------------------------
+    def _send_order_confirmation_email(
+        self,
+        session: Session,
+        order: Order,
+    ) -> None:
+        """
+        Build and send an order confirmation email to the customer.
+
+        NOTE:
+        - Called only when order transitions into 'confirmed'.
+        - This uses raw SQLModel queries; if you already have repository
+          methods to fetch user + items, you can replace this logic with those.
+        """
+        # Fetch user to get email
+        user = session.get(User, order.user_id)
+        if not user or not user.email:
+            # Nothing to do if we cannot find an email address.
+            return
+
+        # Fetch order items
+        items_stmt = select(OrderItem).where(OrderItem.order_id == order.id)
+        items: list[OrderItem] = list(session.exec(items_stmt))  # type: ignore[assignment]
+
+        # Build a simple text receipt
+        lines: list[str] = []
+
+        lines.append("Dear {name},".format(name=user.name or "customer"))
+        lines.append("")
+        lines.append("Thank you for ordering with Amoura Cakes! 🧁")
+        lines.append("Your order has been confirmed and is being prepared.")
+        lines.append("")
+        lines.append(f"Order ID: {order.id}")
+        lines.append(f"Delivery date: {order.delivery_date}")
+        lines.append(f"Delivery window: {order.delivery_window}")
+        lines.append("")
+        lines.append("Delivery address:")
+        lines.append(f"  {order.full_address}")
+        lines.append(f"  Ward: {order.ward}")
+        lines.append(f"  Province: {order.province}")
+        lines.append("")
+        lines.append("Items:")
+        for item in items:
+            lines.append(
+                f"  - x{item.quantity} @ {float(item.unit_price):.2f} = "
+                f"{float(item.unit_price) * item.quantity:.2f}"
+            )
+
+        lines.append("")
+        lines.append(f"Total amount: {float(order.total_amount):.2f} VND")
+        lines.append("")
+        lines.append("If you have any questions, just reply to this email.")
+        lines.append("")
+        lines.append("With love,")
+        lines.append("Amoura Cakes 💕")
+
+        text_body = "\n".join(lines)
+
+        # Optional HTML body for nicer formatting (you can style later)
+        html_body = f"""
+        <html>
+        <body>
+          <p>Dear {user.name or "customer"},</p>
+          <p>Thank you for ordering with <strong>Amoura Cakes</strong>! 🧁<br/>
+             Your order has been <strong>confirmed</strong> and is being prepared.</p>
+
+          <h3>Order details</h3>
+          <ul>
+            <li><strong>Order ID:</strong> {order.id}</li>
+            <li><strong>Delivery date:</strong> {order.delivery_date}</li>
+            <li><strong>Delivery window:</strong> {order.delivery_window}</li>
+          </ul>
+
+          <h3>Delivery address</h3>
+          <p>
+            {order.full_address}<br/>
+            Ward: {order.ward}<br/>
+            Province: {order.province}
+          </p>
+
+          <h3>Items</h3>
+          <ul>
+        """
+
+        for item in items:
+            line_total = float(item.unit_price) * item.quantity
+            html_body += (
+                f"<li>x{item.quantity} @ {float(item.unit_price):.2f} "
+                f"= {line_total:.2f}</li>"
+            )
+
+        html_body += f"""
+          </ul>
+
+          <p><strong>Total amount:</strong> {float(order.total_amount):.2f} VND</p>
+
+          <p>If you have any questions, just reply to this email.</p>
+
+          <p>With love,<br/>
+             <strong>Amoura Cakes 💕</strong></p>
+        </body>
+        </html>
+        """
+
+        subject = f"[Amoura] Your order {order.id} is confirmed"
+
+        # Actually send the email
+        send_email(
+            to_email=user.email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        )
+
