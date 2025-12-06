@@ -125,7 +125,7 @@ class ProductService:
         limit: int = 50,
         only_active: bool = True,
     ) -> list[Product]:
-        return self.repo.list(session, skip=skip, limit=limit, only_active=only_active)
+        return self.repo.list_products(session, skip=skip, limit=limit, only_active=only_active)
 
     def get_product(self, session: Session, product_id: uuid.UUID) -> Product:
         product = self.repo.get_by_id(session, product_id)

@@ -23,7 +23,7 @@ class ProductRepository:
         stmt = select(Product).where(Product.slug == slug)
         return session.exec(stmt).first()
 
-    def list(
+    def list_products(
         self,
         session: Session,
         skip: int = 0,
