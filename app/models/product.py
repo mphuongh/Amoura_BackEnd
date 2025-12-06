@@ -63,6 +63,12 @@ class Product(SQLModel, table=True):
         description="Main hero image URL",
     )
 
+    category: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Category of the product (must be one of: 'Cakes & Mousses', 'Croissants & Tart', 'Giftsets')",
+    )
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Creation timestamp (UTC)",

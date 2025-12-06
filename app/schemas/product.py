@@ -20,8 +20,12 @@ class ProductBase(SQLModel):
     stock_on_hand: int = Field(default=0, ge=0)
     is_active: bool = True
     hero_image_url: str | None = None
+    category: str = Field(
+        max_length=50,
+        description="Product category (must follow allowed values)"
+    )
 
-    @field_validator("name", "slug")
+    @field_validator("name", "slug", "category")
     @classmethod
     def not_empty(cls, v: str) -> str:
         v = v.strip()
@@ -45,8 +49,12 @@ class ProductCreate(SQLModel):
     price: float = Field(gt=0)
     stock_on_hand: int = Field(default=0, ge=0)
     is_active: bool = True
+    category: str = Field(
+        max_length=50,
+        description="Product category"
+    )
 
-    @field_validator("name")
+    @field_validator("name", "category")
     @classmethod
     def validate_name(cls, v: str) -> str:
         v = v.strip()
@@ -89,8 +97,13 @@ class ProductUpdate(SQLModel):
     stock_on_hand: int | None = Field(default=None, ge=0)
     is_active: bool | None = None
     hero_image_url: str | None = None  # allow manual override if needed
+    category: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Updated category if provided"
+    )
 
-    @field_validator("name")
+    @field_validator("name", "category")
     @classmethod
     def validate_name(cls, v: str | None) -> str | None:
         if v is None:

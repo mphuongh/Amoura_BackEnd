@@ -158,6 +158,7 @@ class ProductService:
             price=payload.price,
             stock_on_hand=payload.stock_on_hand,
             is_active=payload.is_active,
+            category=payload.category.strip(),
         )
         return self.repo.create(session, product)
 
@@ -196,6 +197,9 @@ class ProductService:
 
         if payload.hero_image_url is not None:
             product.hero_image_url = payload.hero_image_url
+
+        if payload.category is not None:
+            product.category = payload.category
 
         return self.repo.update(session, product)
 
