@@ -114,3 +114,6 @@ class OrderItem(SQLModel, table=True):
     unit_price: float = Field(
         description="Unit price at time of order (pre-tax)",
     )
+
+    product_name: str | None = None
+    product_hero_image_url: str | None = None

@@ -175,12 +175,23 @@ class OrderService:
         # 6) Create OrderItem rows (pre-tax unit_price)
         order_items: list[OrderItem] = []
         for ci in cart_items:
+            product = product_map.get(ci.product_id)
+            product_name: str | None = getattr(ci, "product_name", None)
+            if not product_name and product is not None:
+                product_name = product.name
+            product_hero_image_url: str | None = getattr(
+                ci, "product_hero_image_url", None
+            )
+            if not product_hero_image_url and product is not None:
+                product_hero_image_url = product.hero_image_url
             order_items.append(
                 OrderItem(
                     order_id=order.id,
                     product_id=ci.product_id,
                     quantity=ci.quantity,
                     unit_price=ci.snapshot_price,
+                    product_name=product_name,
+                    product_hero_image_url=product_hero_image_url,
                 )
             )
 

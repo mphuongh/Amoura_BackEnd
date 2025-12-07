@@ -38,6 +38,9 @@ class CartItem(SQLModel, table=True):
         description="Price when added to cart",
     )
 
+    product_name: str | None = None
+    product_hero_image_url: str | None = None
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
     )

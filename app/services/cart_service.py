@@ -80,6 +80,8 @@ class CartService:
                     snapshot_price=it.snapshot_price,
                     line_total=line_total,
                     created_at=it.created_at,
+                    product_name=it.product_name,
+                    product_hero_image_url=it.product_hero_image_url,
                 )
             )
 
@@ -102,6 +104,7 @@ class CartService:
           - product must exist and be active
           - quantity + existing_quantity <= stock_on_hand
           - snapshot_price is taken from current product.price
+          - snapshot product.name & hero_image_url when first adding item
         """
         product = self._get_valid_product(session, payload.product_id)
 
@@ -128,6 +131,8 @@ class CartService:
                 product_id=payload.product_id,
                 quantity=payload.quantity,
                 snapshot_price=product.price,
+                product_name=product.name,
+                product_hero_image_url=product.hero_image_url,
             )
             self.cart_repo.create(session, item)
 

@@ -2,6 +2,7 @@
 import uuid
 from sqlmodel import Session, select
 from app.models.cart import CartItem
+from app.models.product import Product
 
 
 class CartRepository:
@@ -43,3 +44,32 @@ class CartRepository:
         for row in self.list_for_user(session, user_id):
             session.delete(row)
         session.commit()
+
+    def create_from_product(
+            self,
+            session: Session,
+            *,
+            user_id: uuid.UUID,
+            product: Product,
+            quantity: int,
+    ) -> CartItem:
+        """
+        Create a CartItem from a Product, snapshotting:
+          - snapshot_price
+          - product_name
+          - product_hero_image_url
+
+        Business logic (e.g., preventing negative qty) should live in the service.
+        """
+        item = CartItem(
+            user_id=user_id,
+            product_id=product.id,
+            quantity=quantity,
+            snapshot_price=product.price,
+            product_name=product.name,
+            product_hero_image_url=product.hero_image_url,
+        )
+        session.add(item)
+        session.commit()
+        session.refresh(item)
+        return item

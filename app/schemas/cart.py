@@ -40,6 +40,8 @@ class CartItemRead(SQLModel):
     product_id: uuid.UUID
     quantity: int
     snapshot_price: float
+    product_name: str | None = None
+    product_hero_image_url: str | None = None
     line_total: float
     created_at: datetime
 

@@ -97,6 +97,9 @@ class OrderItemRead(SQLModel):
     unit_price: float
     line_total: float
 
+    product_name: str | None = None
+    product_hero_image_url: str | None = None
+
 
 class OrderWithItemsRead(OrderRead):
     """
