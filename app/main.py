@@ -65,7 +65,7 @@ origins = [
     "http://0.0.0.0:3000",
     "http://[::1]:3000",
     "http://localhost:3001",  # optional alternate port if needed
-    "amourapastry.vercel.app",
+    "https://amourapastry.vercel.app/",
 ]
 
 app.add_middleware(
